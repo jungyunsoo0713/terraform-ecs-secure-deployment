@@ -87,3 +87,55 @@ resource "aws_nat_gateway" "main" {
         Name = "terraform-ecs-secure-deployment-nat-gateway"
     }
 }
+
+resource "aws_route_table" "public" {
+    vpc_id = aws_vpc.main.id
+
+    tags = {
+        Name = "terraform-ecs-secure-deployment-public-route-table"
+    }
+}
+
+resource "aws_route" "public_internet_access" {
+    route_table_id = aws_route_table.public.id
+    destination_cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+
+    depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_route_table_association" "public_subnet_1" {
+    subnet_id = aws_subnet.public_subnet_1.id
+    route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_subnet_2" {
+    subnet_id = aws_subnet.public_subnet_2.id
+    route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table" "private" {
+    vpc_id = aws_vpc.main.id
+
+    tags = {
+        Name = "terraform-ecs-secure-deployment-private-route-table"
+    }
+}
+
+resource "aws_route" "private_nat_gateway_access" {
+    route_table_id = aws_route_table.private.id
+    destination_cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+
+    depends_on = [aws_nat_gateway.main]
+}
+
+resource "aws_route_table_association" "private_subnet_1" {
+    subnet_id = aws_subnet.private_subnet_1.id
+    route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private_subnet_2" {
+    subnet_id = aws_subnet.private_subnet_2.id
+    route_table_id = aws_route_table.private.id
+}
