@@ -139,3 +139,64 @@ resource "aws_route_table_association" "private_subnet_2" {
     subnet_id = aws_subnet.private_subnet_2.id
     route_table_id = aws_route_table.private.id
 }
+
+resource "aws_security_group" "alb" {
+    name = "alb-sg"
+    vpc_id = aws_vpc.main.id
+
+    tags = {
+        Name = "terraform-ecs-secure-deployment-alb-sg"
+    }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_http_from_internet" {
+    security_group_id = aws_security_group.alb.id
+
+    from_port = 80
+    to_port = 80
+    ip_protocol = "tcp"
+    cidr_ipv4 = "0.0.0.0/0"
+
+    description = "Allow HTTP from internet"
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_all_outbound" {
+    security_group_id = aws_security_group.alb.id
+
+    ip_protocol = "-1"
+    cidr_ipv4 = "0.0.0.0/0"
+
+    description = "Allow all outbound traffic" 
+}
+
+resource "aws_security_group" "ui" {
+    name = "ui-task-sg"
+    vpc_id = aws_vpc.main.id
+
+    tags = {
+        Name = "terraform-ecs-secure-deployment-ui-sg"
+    }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ui_http_from_alb" {
+    security_group_id = aws_security_group.ui.id
+
+    referenced_security_group_id = aws_security_group.alb.id
+
+    from_port = 8080
+    to_port = 8080
+    ip_protocol = "tcp"
+
+    description = "Allow HTTP traffic from ALB to UI service"
+
+}
+
+resource "aws_vpc_security_group_egress_rule" "ui_all_outbound" {
+    security_group_id = aws_security_group.ui.id
+
+    ip_protocol = "-1"
+    cidr_ipv4 = "0.0.0.0/0"
+
+    description = "Allow all outbound traffic from UI service"
+}
+
