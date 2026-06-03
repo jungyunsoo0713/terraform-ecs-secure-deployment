@@ -201,7 +201,7 @@ resource "aws_vpc_security_group_egress_rule" "ui_all_outbound" {
 }
 
 resource "aws_lb" "main" {
-  name               = "terraform-ecs-secure-deployment-alb"
+  name               = "ecs-secure-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -245,5 +245,79 @@ resource "aws_lb_listener" "http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.ui.arn
+  }
+}
+
+resource "aws_ecs_cluster" "main" {
+  name = "ecs-secure-cluster"
+
+  tags = {
+    Name = "terraform-ecs-secure-deployment-cluster"
+  }
+}
+
+resource "aws_ecs_task_definition" "ui" {
+  family                   = "ecs-secure-ui-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "1024"
+  memory                   = "2048"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "ui"
+      image     = "public.ecr.aws/aws-containers/retail-store-sample-ui:1.2.3"
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = 8080
+          protocol      = "tcp"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "retail-store-ecs-tasks"
+          awslogs-region        = "ap-northeast-3"
+          awslogs-stream-prefix = "ui-service"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_service" "ui" {
+  name = "ecs-secure-ui-service"
+  cluster = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.ui.arn
+  desired_count = 2
+  launch_type = "FARGATE"
+
+  network_configuration {
+    subnets = [
+      aws_subnet.private_subnet_1.id,
+      aws_subnet.private_subnet_2.id
+    ]
+
+    security_groups = [aws_security_group.ui.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.ui.arn
+    container_name = "ui"
+    container_port = 8080
+  }
+
+  depends_on = [ 
+    aws_lb_listener.http
+  ]
+
+  tags = {
+    Name = "terraform-ecs-secure-deployment-ui-service"
   }
 }
