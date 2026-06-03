@@ -200,6 +200,21 @@ resource "aws_vpc_security_group_egress_rule" "ui_all_outbound" {
   description = "Allow all outbound traffic from UI service"
 }
 
+resource "aws_lb" "main" {
+  name               = "terraform-ecs-secure-deployment-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets = [
+    aws_subnet.public_subnet_1.id,
+    aws_subnet.public_subnet_2.id
+  ]
+
+  tags = {
+    Name = "terraform-ecs-secure-deployment-alb"
+  }
+}
+
 resource "aws_lb_target_group" "ui" {
   name        = "ui-tg"
   port        = 8080
