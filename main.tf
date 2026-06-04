@@ -291,11 +291,11 @@ resource "aws_ecs_task_definition" "ui" {
 }
 
 resource "aws_ecs_service" "ui" {
-  name = "ecs-secure-ui-service"
-  cluster = aws_ecs_cluster.main.id
+  name            = "ecs-secure-ui-service"
+  cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.ui.arn
-  desired_count = 2
-  launch_type = "FARGATE"
+  desired_count   = 2
+  launch_type     = "FARGATE"
 
   network_configuration {
     subnets = [
@@ -303,21 +303,72 @@ resource "aws_ecs_service" "ui" {
       aws_subnet.private_subnet_2.id
     ]
 
-    security_groups = [aws_security_group.ui.id]
+    security_groups  = [aws_security_group.ui.id]
     assign_public_ip = false
   }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.ui.arn
-    container_name = "ui"
-    container_port = 8080
+    container_name   = "ui"
+    container_port   = 8080
   }
 
-  depends_on = [ 
+  depends_on = [
     aws_lb_listener.http
   ]
 
   tags = {
     Name = "terraform-ecs-secure-deployment-ui-service"
+  }
+}
+
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "ecs-task-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "ecs-task-execution-role"
+  }
+}
+
+resource "aws_iam_role" "ecs_task_role" {
+  name = "ecs-task-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "ecs-task-role"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "ecs" {
+  name              = "/ecs/terraform-ecs-secure-deployment"
+  retention_in_days = 7
+
+  tags = {
+    Name = "terraform-ecs-secure-deployment-log-group"
   }
 }
